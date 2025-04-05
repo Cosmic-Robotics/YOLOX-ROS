@@ -39,42 +39,46 @@ set(ENABLE_HAILORT OFF)
 
 if(YOLOX_USE_OPENVINO)
   find_package(OpenVINO REQUIRED)
-  find_package(InferenceEngine REQUIRED)
-  find_package(ngraph REQUIRED)
 
   set(ENABLE_OPENVINO ON)
-  set(TARGET_SRC src/yolox_openvino.cpp)
-  set(TARGET_LIBS InferenceEngine ngraph)
-  set(TARGET_DPENDENCIES OpenVINO InferenceEngine ngraph)
+  set(TARGET_SRC ${TARGET_SRC} src/yolox_openvino.cpp)
+  set(TARGET_LIBS ${TARGET_LIBS} openvino::runtime)
+  set(TARGET_DPENDENCIES ${TARGET_DPENDENCIES} OpenVINO)
 endif()
 
 if(YOLOX_USE_TENSORRT)
   find_package(CUDA REQUIRED)
-  find_library(NVINFER  NAMES nvinfer REQUIRED)
-  find_library(NVINFERPLUGIN NAMES nvinfer_plugin  REQUIRED)
-  find_library(NVPARSERS NAMES nvparsers REQUIRED)
-  find_library(NVONNXPARSER NAMES nvonnxparser REQUIRED)
+  if (NOT CUDA_TOOLKIT_ROOT_DIR)
+    set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
+  endif()
+  find_path(TENSORRT_INCLUDE_DIR NvInfer.h
+    HINTS ${TENSORRT_ROOT} ${CUDA_TOOLKIT_ROOT_DIR}
+    PATH_SUFFIXES include)
 
   set(ENABLE_TENSORRT ON)
-  set(TARGET_SRC src/yolox_tensorrt.cpp)
-  set(TARGET_LIBS nvinfer nvinfer_plugin nvparsers nvonnxparser)
-  set(TARGET_DPENDENCIES CUDA)
+  set(TARGET_SRC ${TARGET_SRC} src/yolox_tensorrt.cpp)
+  set(TARGET_LIBS ${TARGET_LIBS} nvinfer nvinfer_plugin)
+  set(TARGET_DPENDENCIES ${TARGET_DPENDENCIES} CUDA)
 endif()
 
 # tflite
 if(YOLOX_USE_TFLITE)
   set(ENABLE_TFLITE ON)
-  set(TARGET_SRC src/yolox_tflite.cpp)
-  set(INCLUDES ${INCLUDES} ${TFLITE_INCLUDE_DIR})
-  set(INCLUDES ${INCLUDES} ${ABSEIL_CPP_ICLUDE_DIR})
-  set(INCLUDES ${INCLUDES} ${FLATBUFFERS_INCLUDE_DIR})
+  set(TARGET_SRC ${TARGET_SRC} src/yolox_tflite.cpp)
+  set(TFLITE_INCLUDES
+    ${TFLITE_INCLUDE_DIR}
+    ${ABSEIL_CPP_ICLUDE_DIR}
+    ${FLATBUFFERS_INCLUDE_DIR}
+  )
+  set(TARGET_LIBS ${TARGET_LIBS} ${TFLITE_LIB_PATH}/libtensorflow-lite.so)
 endif()
 
 # onnxruntime
 if(YOLOX_USE_ONNXRUNTIME)
   find_library(ONNXRUNTIME NAMES onnxruntime)
   set(ENABLE_ONNXRUNTIME ON)
-  set(TARGET_SRC src/yolox_onnxruntime.cpp)
+  set(TARGET_SRC ${TARGET_SRC} src/yolox_onnxruntime.cpp)
+  set(TARGET_LIBS ${TARGET_LIBS} onnxruntime)
 endif()
 
 # hailort
@@ -82,6 +86,8 @@ if(YOLOX_USE_HAILORT)
   find_package(HailoRT EXACT REQUIRED)
   set(ENABLE_HAILORT ON)
   set(TARGET_SRC src/yolox_hailort.cpp)
+  set(TARGET_LIBS ${TARGET_LIBS} HailoRT::libhailort)
+  set(TARGET_DPENDENCIES ${TARGET_DPENDENCIES} HailoRT)
 endif()
 
 configure_file(
@@ -92,27 +98,14 @@ configure_file(
 ament_auto_add_library(yolox_cpp SHARED ${TARGET_SRC})
 ament_target_dependencies(yolox_cpp ${TARGET_DPENDENCIES})
 ament_export_dependencies(${TARGET_DPENDENCIES})
-
-
-if (YOLOX_USE_TENSORRT)
-  target_link_libraries(yolox_cpp ${TARGET_LIBS})
-endif()
+target_link_libraries(yolox_cpp ${TARGET_LIBS})
 
 if (YOLOX_USE_TFLITE)
-  target_include_directories(yolox_cpp PUBLIC ${INCLUDES})
-  target_link_libraries(yolox_cpp ${TFLITE_LIB_PATH}/libtensorflow-lite.so)
-  ament_export_include_directories(${INCLUDES})
+  target_include_directories(yolox_cpp PUBLIC ${TFLITE_INCLUDES})
+  ament_export_include_directories(${TFLITE_INCLUDES})
   install(DIRECTORY ${TFLITE_LIB_PATH}/ DESTINATION lib)
 endif()
 
-if (YOLOX_USE_ONNXRUNTIME)
-  target_link_libraries(yolox_cpp onnxruntime)
-endif()
-
-if (YOLOX_USE_HAILORT)
-  target_link_libraries(yolox_cpp HailoRT::libhailort ${OpenCV_LIBS})
-  ament_export_dependencies(HailoRT)
-endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

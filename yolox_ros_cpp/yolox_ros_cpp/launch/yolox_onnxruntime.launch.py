@@ -52,26 +52,26 @@ def generate_launch_description():
             description='yolox model version.'
         ),
         DeclareLaunchArgument(
-            'onnxruntime/use_cuda',
+            'onnxruntime_use_cuda',
             default_value='true',
             description='onnxruntime use cuda.'
         ),
         DeclareLaunchArgument(
-            'onnxruntime/device_id',
+            'onnxruntime_device_id',
             default_value='0',
             description='onnxruntime gpu device id.'
         ),
         DeclareLaunchArgument(
-            'onnxruntime/use_parallel',
+            'onnxruntime_use_parallel',
             default_value='false',
             description='if use_parallel is true, you can set inter_op_num_threads.'
         ),
         DeclareLaunchArgument(
-            'onnxruntime/inter_op_num_threads',
+            'onnxruntime_inter_op_num_threads',
             default_value='1'
         ),
         DeclareLaunchArgument(
-            'onnxruntime/intra_op_num_threads',
+            'onnxruntime_intra_op_num_threads',
             default_value='1',
             description='ontrols the number of threads to use to run the model.'
         ),
@@ -105,6 +105,16 @@ def generate_launch_description():
             default_value='/yolox/bounding_boxes',
             description='topic name for publishing bounding box message.'
         ),
+        DeclareLaunchArgument(
+            'use_bbox_ex_msgs',
+            default_value='false',
+            description='use BoundingBoxArray message type.'
+        ),
+        DeclareLaunchArgument(
+            'publish_resized_image',
+            default_value='false',
+            description='use BoundingBoxArray message type.'
+        ),
     ]
     container = ComposableNodeContainer(
         name='yolox_container',
@@ -113,12 +123,12 @@ def generate_launch_description():
         executable='component_container',
         composable_node_descriptions=[
             ComposableNode(
-                package='v4l2_camera',
-                plugin='v4l2_camera::V4L2Camera',
-                name='v4l2_camera',
+                package='usb_cam',
+                plugin='usb_cam::UsbCamNode',
+                name='usb_cam_node',
                 parameters=[{
                     'video_device': LaunchConfiguration('video_device'),
-                    'image_size': [640, 480]
+                    'brightness': 100
                 }]),
             ComposableNode(
                 package='yolox_ros_cpp',
@@ -131,17 +141,19 @@ def generate_launch_description():
                     'num_classes': LaunchConfiguration('num_classes'),
                     'model_type': 'onnxruntime',
                     'model_version': LaunchConfiguration('model_version'),
-                    'onnxruntime/use_cuda': LaunchConfiguration('onnxruntime/use_cuda'),
-                    'onnxruntime/device_id': LaunchConfiguration('onnxruntime/device_id'),
-                    'onnxruntime/use_parallel': LaunchConfiguration('onnxruntime/use_parallel'),
-                    'onnxruntime/inter_op_num_threads': LaunchConfiguration('onnxruntime/inter_op_num_threads'),
-                    'onnxruntime/intra_op_num_threads': LaunchConfiguration('onnxruntime/intra_op_num_threads'),
+                    'onnxruntime_use_cuda': LaunchConfiguration('onnxruntime_use_cuda'),
+                    'onnxruntime_device_id': LaunchConfiguration('onnxruntime_device_id'),
+                    'onnxruntime_use_parallel': LaunchConfiguration('onnxruntime_use_parallel'),
+                    'onnxruntime_inter_op_num_threads': LaunchConfiguration('onnxruntime_inter_op_num_threads'),
+                    'onnxruntime_intra_op_num_threads': LaunchConfiguration('onnxruntime_intra_op_num_threads'),
                     'conf': LaunchConfiguration('conf'),
                     'nms': LaunchConfiguration('nms'),
                     'imshow_isshow': LaunchConfiguration('imshow_isshow'),
                     'src_image_topic_name': LaunchConfiguration('src_image_topic_name'),
                     'publish_image_topic_name': LaunchConfiguration('publish_image_topic_name'),
                     'publish_boundingbox_topic_name': LaunchConfiguration('publish_boundingbox_topic_name'),
+                    'publish_resized_image': LaunchConfiguration('publish_resized_image'),
+                    'use_bbox_ex_msgs': LaunchConfiguration('use_bbox_ex_msgs'),
                 }],
                 ),
         ],

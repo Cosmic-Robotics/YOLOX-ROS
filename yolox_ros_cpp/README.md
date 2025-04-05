@@ -1,13 +1,16 @@
 # YOLOX-ROS-CPP
 
 ## Requirements
-- ROS2 Humble
+- ROS2 Iron
+  - ros-jazzy-generate-parameter-library
+  - ros-jazzy-vision-msgs
+  - ros-jazzy-usb-cam
 - OpenCV 4.x
-- OpenVINO 2021.*
-- TensorRT 8.x *
+- OpenVINO 2024.*
+- TensorRT 10.x *
 - ONNXRuntime *
 - Tensorflow Lite *
-- **CUDA 11**
+- **CUDA 12**
 
 ※ Either one of OpenVINO or TensorRT or ONNXRuntime or Tensorflow Lite is required.
 
@@ -17,15 +20,10 @@
 
 ※ Tensorflow Lite support float model and does not support integer model.
 
-※ Model convert script is not supported OpenVINO 2022.*
-
-※ Don't use CUDA 12
-
-
 ## Clone YOLOX-ROS
 ```bash
 cd ~/ros2_ws/src
-git clone --recursive https://github.com/Ar-Ray-code/YOLOX-ROS -b humble
+git clone --recursive https://github.com/Ar-Ray-code/YOLOX-ROS -b jazzy
 ```
 
 ## Model Convert or Download
@@ -34,8 +32,6 @@ git clone --recursive https://github.com/Ar-Ray-code/YOLOX-ROS -b humble
 cd ~/ros2_ws
 
 ./src/YOLOX-ROS/weights/onnx/download.bash yolox_tiny
-# Download onnx file and convert to IR format.
-# ./src/YOLOX-ROS/weights/openvino/download.bash yolox_tiny
 ```
 
 ### TensorRT
@@ -43,11 +39,11 @@ cd ~/ros2_ws
 cd ~/ros2_ws
 
 # Download onnx model and convert to TensorRT engine.
-# 1st arg is model name. 2nd is workspace size.
-./src/YOLOX-ROS/weights/tensorrt/convert.bash yolox_tiny 16
+# argument is model name. set yolox_tiny, yolox_nano, yolox_s, yolox_m or yolox_l.
+./src/YOLOX-ROS/weights/tensorrt/convert.bash yolox_tiny
 ```
 
-#### Tensorflow Lite
+### Tensorflow Lite
 ```bash
 cd ~/ros2_ws
 
@@ -55,12 +51,12 @@ cd ~/ros2_ws
 ./src/YOLOX-ROS/weights/tflite/download_model.bash
 ```
 
-#### PINTO_model_zoo
+### PINTO_model_zoo
 - Support PINTO_model_zoo model
 - Download model using the following script.
   - https://github.com/PINTO0309/PINTO_model_zoo/blob/main/132_YOLOX/download_nano.sh
   - `curl -s https://raw.githubusercontent.com/PINTO0309/PINTO_model_zoo/main/132_YOLOX/download_nano.sh | bash`
-  
+
 - ONNX model copy to weight dir
   - `cp resouces_new/saved_model_yolox_tiny_480x640/yolox_tiny_480x640.onnx ./src/YOLOX-ROS/weights/onnx/`
 
@@ -79,17 +75,16 @@ cd ~/ros2_ws
 
 ```bash
 # build with openvino
-source /opt/ros/humble/setup.bash
-source /opt/intel/openvino_2021/bin/setupvars.sh
-colcon build --cmake-args -DYOLOX_USE_OPENVINO=ON
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --cmake-args -DYOLOX_USE_OPENVINO=ON
 ```
 
 ### TensorRT
 
 ```bash
 # build with tensorrt
-source /opt/ros/humble/setup.bash
-colcon build --cmake-args -DYOLOX_USE_TENSORRT=ON
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --cmake-args -DYOLOX_USE_TENSORRT=ON
 ```
 
 ### TFLite
@@ -99,7 +94,7 @@ colcon build --cmake-args -DYOLOX_USE_TENSORRT=ON
 https://www.tensorflow.org/lite/guide/build_cmake
 
 Below is an example build script.
-Please change `${WORKSPACE}` as appropriate for your environment.
+Please change `${WORKSPACE}` as appropriate for your envjazzyment.
 ```bash
 export WORKSPACE=${HOME}/ws_tflite
 mkdir -p ${WORKSPACE}
@@ -119,12 +114,13 @@ make -j"$(nproc)"
 ```
 
 ```bash
-colcon build --cmake-args \
-  -DYOLOX_USE_TFLITE=ON \
-  -DTFLITE_LIB_PATH=${WORKSPACE}/tflite_build \
-  -DTFLITE_INCLUDE_DIR=${WORKSPACE}/tensorflow_src/ \
-  -DABSEIL_CPP_ICLUDE_DIR=${WORKSPACE}/tflite_build/abseil-cpp \
-  -DFLATBUFFERS_INCLUDE_DIR=${WORKSPACE}/tflite_build/flatbuffers/include
+colcon build --symlink-install \
+   --cmake-args \
+    -DYOLOX_USE_TFLITE=ON \
+    -DTFLITE_LIB_PATH=${WORKSPACE}/tflite_build \
+    -DTFLITE_INCLUDE_DIR=${WORKSPACE}/tensorflow_src/ \
+    -DABSEIL_CPP_ICLUDE_DIR=${WORKSPACE}/tflite_build/abseil-cpp \
+    -DFLATBUFFERS_INCLUDE_DIR=${WORKSPACE}/tflite_build/flatbuffers/include
 ```
 
 
@@ -153,10 +149,6 @@ ros2 launch yolox_ros_cpp yolox_openvino.launch.py
 # ros2 launch yolox_ros_cpp yolox_openvino.launch.py \
 #     model_path:=install/yolox_ros_cpp/share/yolox_ros_cpp/weights/onnx/yolox_tiny_480x640.onnx \
 #     model_version:="0.1.0"
-
-## run YOLOX-tiny with NCS2
-# ros2 launch yolox_ros_cpp yolox_openvino_ncs2.launch.py
-
 ```
 
 ### TensorRT
@@ -170,20 +162,20 @@ ros2 launch yolox_ros_cpp yolox_tensorrt.launch.py
 
 ```
 
-### Jetson + TensorRT
+<!-- ### Jetson + TensorRT
 Jetson docker container cannot display GUI.
 If you want to show image with bounding box drawn, subscribe from host jetson or other PC.
 
 ```bash
 # run yolox_tiny
 ros2 launch yolox_ros_cpp yolox_tensorrt_jetson.launch.py
-```
+``` -->
 
-<!-- ### ONNXRuntime
+### ONNXRuntime
 ```bash
 # run yolox_tiny
 ros2 launch yolox_ros_cpp yolox_onnxruntime.launch.py
-``` -->
+```
 
 ### Tensorflow Lite
 ```bash
@@ -208,20 +200,21 @@ ros2 launch yolox_ros_cpp yolox_hailort.launch.py
 <details>
 <summary>OpenVINO example</summary>
 
-- `model_path`: ./install/yolox_ros_cpp/share/yolox_ros_cpp/weights/openvino/yolox_tiny.xml
+- `model_path`: ./src/YOLOX-ROS/weights/onnx/yolox_tiny.onnx
 - `p6`: false
 - `class_labels_path`: ""
   - if not set, use coco_names.
   - See [here](https://github.com/fateshelled/YOLOX-ROS/blob/dev_cpp/yolox_ros_cpp/yolox_ros_cpp/labels/coco_names.txt) for label format.
 - `num_classes`: 80
 - `model_version`: 0.1.1rc0
-- `openvino/device`: CPU
-- `conf`: 0.3
+- `openvino_device`: AUTO
 - `nms`: 0.45
 - `imshow_isshow`: true
 - `src_image_topic_name`: /image_raw
 - `publish_image_topic_name`: /yolox/image_raw
 - `publish_boundingbox_topic_name`: /yolox/bounding_boxes
+- `use_bbox_ex_msgs`: false
+- `publish_resized_image`: false
 
 </details>
 
@@ -229,18 +222,20 @@ ros2 launch yolox_ros_cpp yolox_hailort.launch.py
 <details>
 <summary>TensorRT example</summary>
 
-- `model_path`: ./install/yolox_ros_cpp/share/yolox_ros_cpp/weights/tensorrt/yolox_tiny.trt
+- `model_path`: ../src/YOLOX-ROS/weights/tensorrt/yolox_tiny.trt
 - `p6`: false
 - `class_labels_path`: ""
 - `num_classes`: 80
 - `model_version`: 0.1.1rc0
-- `tensorrt/device`: 0
+- `tensorrt_device`: 0
 - `conf`: 0.3
 - `nms`: 0.45
 - `imshow_isshow`: true
 - `src_image_topic_name`: /image_raw
 - `publish_image_topic_name`: /yolox/image_raw
 - `publish_boundingbox_topic_name`: /yolox/bounding_boxes
+- `use_bbox_ex_msgs`: false
+- `publish_resized_image`: false
 
 </details>
 
@@ -248,17 +243,17 @@ ros2 launch yolox_ros_cpp yolox_hailort.launch.py
 <summary>ONNXRuntime example</summary>
 
 
-- `model_path`: ./install/yolox_ros_cpp/share/yolox_ros_cpp/weights/onnx/yolox_tiny.onnx
+- `model_path`: ./src/YOLOX-ROS/weights/onnx/yolox_tiny.onnx
 - `p6`: false
 - `class_labels_path`: ""
 - `num_classes`: 80
 - `model_version`: 0.1.1rc0
-- `onnxruntime/use_cuda`: true
-- `onnxruntime/use_parallel`: false
-- `onnxruntime/device_id`: 0
-- `onnxruntime/inter_op_num_threads`: 1
-  - if `onnxruntime/use_parallel` is true, the number of threads used to parallelize the execution of the graph (across nodes).
-- `onnxruntime/intra_op_num_threads`: 1
+- `onnxruntime_use_cuda`: true
+- `onnxruntime_use_parallel`: false
+- `onnxruntime_device_id`: 0
+- `onnxruntime_inter_op_num_threads`: 1
+  - if `onnxruntime_use_parallel` is true, the number of threads used to parallelize the execution of the graph (across nodes).
+- `onnxruntime_intra_op_num_threads`: 1
   - the number of threads to use to run the model
 - `conf`: 0.3
 - `nms`: 0.45
@@ -266,25 +261,29 @@ ros2 launch yolox_ros_cpp yolox_hailort.launch.py
 - `src_image_topic_name`: /image_raw
 - `publish_image_topic_name`: /yolox/image_raw
 - `publish_boundingbox_topic_name`: /yolox/bounding_boxes
+- `use_bbox_ex_msgs`: false
+- `publish_resized_image`: false
 
 </details>
 
 <details>
 <summary>Tensorflow Lite example</summary>
 
-- `model_path`: ./install/yolox_ros_cpp/share/yolox_ros_cpp/weights/tflite/model.tflite
+- `model_path`: ./src/YOLOX-ROS/weights/tflite/model.tflite
 - `p6`: false
 - `is_nchw`: true
 - `class_labels_path`: ""
 - `num_classes`: 1
 - `model_version`: 0.1.1rc0
-- `tflite/num_threads`: 1
+- `tflite_num_threads`: 1
 - `conf`: 0.3
 - `nms`: 0.45
 - `imshow_isshow`: true
 - `src_image_topic_name`: /image_raw
 - `publish_image_topic_name`: /yolox/image_raw
 - `publish_boundingbox_topic_name`: /yolox/bounding_boxes
+- `use_bbox_ex_msgs`: false
+- `publish_resized_image`: false
 
 </details>
 

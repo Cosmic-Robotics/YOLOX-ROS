@@ -43,7 +43,7 @@ def generate_launch_description():
             description='yolox model version.'
         ),
         DeclareLaunchArgument(
-            'tflite/num_threads',
+            'tflite_num_threads',
             default_value='1',
             description='tflite num_threads.'
         ),
@@ -77,6 +77,16 @@ def generate_launch_description():
             default_value='/yolox/bounding_boxes',
             description='topic name for publishing bounding box message.'
         ),
+        DeclareLaunchArgument(
+            'use_bbox_ex_msgs',
+            default_value='false',
+            description='use BoundingBoxArray message type.'
+        ),
+        DeclareLaunchArgument(
+            'publish_resized_image',
+            default_value='false',
+            description='use BoundingBoxArray message type.'
+        ),
     ]
     container = ComposableNodeContainer(
         name='yolox_container',
@@ -85,12 +95,12 @@ def generate_launch_description():
         executable='component_container',
         composable_node_descriptions=[
             ComposableNode(
-                package='v4l2_camera',
-                plugin='v4l2_camera::V4L2Camera',
-                name='v4l2_camera',
+                package='usb_cam',
+                plugin='usb_cam::UsbCamNode',
+                name='usb_cam_node',
                 parameters=[{
                     'video_device': LaunchConfiguration('video_device'),
-                    'image_size': [640, 480]
+                    'brightness': 100
                 }]),
             ComposableNode(
                 package='yolox_ros_cpp',
@@ -104,13 +114,15 @@ def generate_launch_description():
                     'is_nchw': LaunchConfiguration('is_nchw'),
                     'model_type': 'tflite',
                     'model_version': LaunchConfiguration('model_version'),
-                    'tflite/num_threads': LaunchConfiguration('tflite/num_threads'),
+                    'tflite_num_threads': LaunchConfiguration('tflite_num_threads'),
                     'conf': LaunchConfiguration('conf'),
                     'nms': LaunchConfiguration('nms'),
                     'imshow_isshow': LaunchConfiguration('imshow_isshow'),
                     'src_image_topic_name': LaunchConfiguration('src_image_topic_name'),
                     'publish_image_topic_name': LaunchConfiguration('publish_image_topic_name'),
                     'publish_boundingbox_topic_name': LaunchConfiguration('publish_boundingbox_topic_name'),
+                    'publish_resized_image': LaunchConfiguration('publish_resized_image'),
+                    'use_bbox_ex_msgs': LaunchConfiguration('use_bbox_ex_msgs'),
                 }],
             ),
         ],
