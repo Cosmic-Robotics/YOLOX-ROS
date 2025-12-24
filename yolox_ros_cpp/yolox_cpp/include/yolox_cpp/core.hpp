@@ -39,7 +39,7 @@ namespace yolox_cpp
               num_classes_(num_classes), p6_(p6), model_version_(model_version)
         {
         }
-        virtual std::vector<Object> inference(const cv::Mat &frame) = 0;
+        virtual std::vector<std::vector<Object>> inference(const std::vector<cv::Mat> &frames) = 0;
 
     protected:
         int input_w_;
