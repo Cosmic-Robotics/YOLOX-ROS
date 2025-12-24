@@ -134,9 +134,6 @@ namespace yolox_cpp
 
     void YoloXTensorRT::doInference(float *input, float *output, int batch_size)
     {
-        std::cout << "DEBUG doInference: batch_size=" << batch_size 
-        << ", copying " << (batch_size * 3 * this->input_h_ * this->input_w_ * sizeof(float)) 
-        << " bytes to input buffer" << std::endl;
         // Create stream
         cudaStream_t stream;
         CHECK(cudaStreamCreate(&stream));
