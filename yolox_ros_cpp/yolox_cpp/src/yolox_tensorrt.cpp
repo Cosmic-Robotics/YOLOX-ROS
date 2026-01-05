@@ -90,7 +90,7 @@ namespace yolox_cpp
         CHECK(cudaFree(inference_buffers_[this->outputIndex_]));
     }
 
-    std::vector<Object> YoloXTensorRT::inference(const std::vector<cv::Mat> &frames)
+    std::vector<std::vector<Object>> YoloXTensorRT::inference(const std::vector<cv::Mat> &frames)
     {
         int batch_size = frames.size();
         
@@ -129,7 +129,7 @@ namespace yolox_cpp
         return all_objects;
     }
 
-    void YoloXTensorRT::doInference(float *input, float *output)
+    void YoloXTensorRT::doInference(float *input, float *output, int batch_size)
     {
 	// Create stream
         cudaStream_t stream;
