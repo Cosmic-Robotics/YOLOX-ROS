@@ -37,10 +37,10 @@ namespace yolox_cpp{
                           float nms_th=0.45, float conf_th=0.3, std::string model_version="0.1.1rc0",
                           int num_classes=80, bool p6=false);
             ~YoloXTensorRT();
-            std::vector<Object> inference(const cv::Mat& frame) override;
+            std::vector<std::vector<Object>> inference(const std::vector<cv::Mat>& frames) override;
 
         private:
-            void doInference(float* input, float* output);
+            void doInference(float* input, float* output, int batch_size);
 
             int DEVICE_ = 0;
             Logger gLogger_;

@@ -41,6 +41,7 @@ namespace yolox_cpp
 
         const auto input_name = this->engine_->getIOTensorName(this->inputIndex_);
         const auto input_dims = this->engine_->getTensorShape(input_name);
+	const int max_batch_size = input_dims.d[0];
         this->input_h_ = input_dims.d[2];
         this->input_w_ = input_dims.d[3];
         std::cout << "INPUT_HEIGHT: " << this->input_h_ << std::endl;
@@ -49,7 +50,7 @@ namespace yolox_cpp
         const auto output_name = this->engine_->getIOTensorName(this->outputIndex_);
         auto output_dims = this->engine_->getTensorShape(output_name);
         this->output_size_ = 1;
-        for (int j = 0; j < output_dims.nbDims; ++j)
+        for (int j = 1; j < output_dims.nbDims; ++j)
         {
             this->output_size_ *= output_dims.d[j];
         }
@@ -63,8 +64,8 @@ namespace yolox_cpp
         assert(this->engine_->getTensorDataType(output_name) == nvinfer1::DataType::kFLOAT);
 
         // Create GPU buffers on device
-        CHECK(cudaMalloc(&this->inference_buffers_[this->inputIndex_], 3 * this->input_h_ * this->input_w_ * sizeof(float)));
-        CHECK(cudaMalloc(&this->inference_buffers_[this->outputIndex_], this->output_size_ * sizeof(float)));
+        CHECK(cudaMalloc(&this->inference_buffers_[this->inputIndex_], max_batch_size * 3 * this->input_h_ * this->input_w_ * sizeof(float)));
+        CHECK(cudaMalloc(&this->inference_buffers_[this->outputIndex_], max_batch_size * this->output_size_ * sizeof(float)));
 
         assert(this->context_->setInputShape(input_name, input_dims));
         assert(this->context_->allInputDimensionsSpecified());
@@ -91,39 +92,57 @@ namespace yolox_cpp
 
     std::vector<Object> YoloXTensorRT::inference(const cv::Mat &frame)
     {
-        // preprocess
-        auto pr_img = static_resize(frame);
-        float *input_blob = new float[pr_img.total() * 3];
-        blobFromImage(pr_img, input_blob);
-
-        // inference
-        float *output_blob = new float[this->output_size_];
-        this->doInference(input_blob, output_blob);
-
-        float scale = std::min(this->input_w_ / (frame.cols * 1.0), this->input_h_ / (frame.rows * 1.0));
-
-        std::vector<Object> objects;
-        decode_outputs(output_blob, this->grid_strides_, objects, this->bbox_conf_thresh_, scale, frame.cols, frame.rows);
-
-        delete input_blob;
-        delete output_blob;
-        return objects;
+        int batch_size = frames.size();
+        
+        // Allocate buffers for the current batch size
+        float *input_blob = new float[batch_size * this->input_h_ * this->input_w_ * 3];
+        float *output_blob = new float[batch_size * this->output_size_];
+        
+        // Preprocess all images
+        for (int i = 0; i < batch_size; ++i) {
+            auto pr_img = static_resize(frames[i]);
+            blobFromImage(pr_img, input_blob + i * this->input_h_ * this->input_w_ * 3);
+        }
+        
+        // Inference
+        this->doInference(input_blob, output_blob, batch_size);
+        
+        // Postprocess each image
+        std::vector<std::vector<Object>> all_objects(batch_size);
+        for (int i = 0; i < batch_size; ++i) {
+            float scale = std::min(this->input_w_ / (frames[i].cols * 1.0), this->input_h_ / (frames[i].rows * 1.0));
+            
+            decode_outputs(
+                output_blob + i * this->output_size_,
+                this->grid_strides_,
+                all_objects[i],
+                this->bbox_conf_thresh_,
+                scale,
+                frames[i].cols,
+                frames[i].rows
+            );
+        }
+        
+        delete[] input_blob;
+        delete[] output_blob;
+        
+        return all_objects;
     }
 
     void YoloXTensorRT::doInference(float *input, float *output)
     {
-        // Create stream
+	// Create stream
         cudaStream_t stream;
         CHECK(cudaStreamCreate(&stream));
 
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-        CHECK(cudaMemcpyAsync(this->inference_buffers_[this->inputIndex_], input, 3 * this->input_h_ * this->input_w_ * sizeof(float), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(this->inference_buffers_[this->inputIndex_], input, batch_size * 3 * this->input_h_ * this->input_w_ * sizeof(float), cudaMemcpyHostToDevice, stream));
 
         bool success = context_->enqueueV3(stream);
         if (!success)
             throw std::runtime_error("failed inference");
 
-        CHECK(cudaMemcpyAsync(output, this->inference_buffers_[this->outputIndex_], this->output_size_ * sizeof(float), cudaMemcpyDeviceToHost, stream));
+        CHECK(cudaMemcpyAsync(output, this->inference_buffers_[this->outputIndex_], batch_size * this->output_size_ * sizeof(float), cudaMemcpyDeviceToHost, stream));
 
         CHECK(cudaStreamSynchronize(stream));
 
