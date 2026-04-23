@@ -41,6 +41,9 @@ namespace yolox_cpp
         }
         virtual std::vector<std::vector<Object>> inference(const std::vector<cv::Mat> &frames) = 0;
 
+        int input_width() const { return input_w_; }
+        int input_height() const { return input_h_; }
+
     protected:
         int input_w_;
         int input_h_;

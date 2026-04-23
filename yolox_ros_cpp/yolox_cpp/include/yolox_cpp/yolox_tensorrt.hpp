@@ -16,6 +16,8 @@
 #include "coco_names.hpp"
 #include "tensorrt_logging.h"
 
+#include "opencv2/core/cuda_stream_accessor.hpp"
+
 namespace yolox_cpp{
     using namespace nvinfer1;
 
@@ -38,6 +40,10 @@ namespace yolox_cpp{
                           int num_classes=80, bool p6=false);
             ~YoloXTensorRT();
             std::vector<std::vector<Object>> inference(const std::vector<cv::Mat>& frames) override;
+            std::vector<Object> optimized_inference(const cv::cuda::GpuMat& mat);
+
+            cudaStream_t stream() const { return stream_; }
+            cv::cuda::Stream& stream_handle() { return stream_handle_; }
 
         private:
             void doInference(float* input, float* output, int batch_size);
@@ -52,6 +58,9 @@ namespace yolox_cpp{
             const int outputIndex_ = 1;
             void *inference_buffers_[2];
 
+            cudaStream_t stream_;
+            cv::cuda::Stream stream_handle_;
+            std::vector<float> output_buffer_;
     };
 } // namespace yolox_cpp
 

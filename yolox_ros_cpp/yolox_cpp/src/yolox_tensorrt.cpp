@@ -44,8 +44,6 @@ namespace yolox_cpp
 	const int max_batch_size = input_dims.d[0];
         this->input_h_ = input_dims.d[2];
         this->input_w_ = input_dims.d[3];
-        std::cout << "INPUT_HEIGHT: " << this->input_h_ << std::endl;
-        std::cout << "INPUT_WIDTH: " << this->input_w_ << std::endl;
 
         const auto output_name = this->engine_->getIOTensorName(this->outputIndex_);
         auto output_dims = this->engine_->getTensorShape(output_name);
@@ -54,6 +52,7 @@ namespace yolox_cpp
         {
             this->output_size_ *= output_dims.d[j];
         }
+        output_buffer_.resize(output_size_);
 
         // Pointers to input and output device buffers to pass to engine.
         // Engine requires exactly IEngine::getNbBindings() number of buffers.
@@ -82,6 +81,9 @@ namespace yolox_cpp
         {
             generate_grids_and_stride(this->input_w_, this->input_h_, this->strides_, this->grid_strides_);
         }
+
+        CHECK(cudaStreamCreate(&stream_));
+        stream_handle_ = cv::cuda::StreamAccessor::wrapStream(stream_);
     }
 
     YoloXTensorRT::~YoloXTensorRT()
@@ -131,23 +133,30 @@ namespace yolox_cpp
 
     void YoloXTensorRT::doInference(float *input, float *output, int batch_size)
     {
-	// Create stream
-        cudaStream_t stream;
-        CHECK(cudaStreamCreate(&stream));
-
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-        CHECK(cudaMemcpyAsync(this->inference_buffers_[this->inputIndex_], input, batch_size * 3 * this->input_h_ * this->input_w_ * sizeof(float), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(this->inference_buffers_[this->inputIndex_], input, batch_size * 3 * this->input_h_ * this->input_w_ * sizeof(float), cudaMemcpyHostToDevice, stream_));
 
-        bool success = context_->enqueueV3(stream);
+        bool success = context_->enqueueV3(stream_);
         if (!success)
             throw std::runtime_error("failed inference");
 
-        CHECK(cudaMemcpyAsync(output, this->inference_buffers_[this->outputIndex_], batch_size * this->output_size_ * sizeof(float), cudaMemcpyDeviceToHost, stream));
+        CHECK(cudaMemcpyAsync(output, this->inference_buffers_[this->outputIndex_], batch_size * this->output_size_ * sizeof(float), cudaMemcpyDeviceToHost, stream_));
 
-        CHECK(cudaStreamSynchronize(stream));
+        CHECK(cudaStreamSynchronize(stream_));
+    }
 
-        // Release stream
-        CHECK(cudaStreamDestroy(stream));
+    std::vector<Object> YoloXTensorRT::optimized_inference(const cv::cuda::GpuMat& mat) {
+        mat.convertTo(cv::cuda::GpuMat{input_h_, input_w_, CV_32FC3,
+                                       inference_buffers_[this->inputIndex_]},
+                      CV_32FC3, stream_handle_);
+
+        if (!context_->enqueueV3(stream_)) throw std::runtime_error("failed inference");
+        CHECK(cudaMemcpyAsync(output_buffer_.data(), inference_buffers_[outputIndex_], output_size_ * sizeof(float), cudaMemcpyDeviceToHost, stream_));
+
+        std::vector<Object> objs;
+        CHECK(cudaStreamSynchronize(stream_));
+        decode_outputs(output_buffer_.data(), grid_strides_, objs, bbox_conf_thresh_, 1.F, mat.cols, mat.rows);
+        return objs;
     }
 
 } // namespace yolox_cpp
